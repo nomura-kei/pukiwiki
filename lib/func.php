@@ -1094,7 +1094,7 @@ function get_host()
 		// 2-1. For Reverse Proxy
 		return $_SERVER['HTTP_X_FORWARDED_HOST'];
 	}
-	if ((isset($_SERVER['HTTP_X_FORWARDED_FOR'])
+	if (isset($_SERVER['HTTP_X_FORWARDED_FOR'])
 		|| isset($_SERVER['HTTP_X_FORWARDED_PROTO'])) {
 		// 2-2. For Reverse Proxy
 		preg_match('/^([a-zA-Z0-9][a-zA-Z0-9\-\.]+)(:[0-9]+){0,1}/',
@@ -1115,7 +1115,7 @@ function get_port($proto)
 		// 2-1. For Reverse Proxy
 		return $_SERVER['HTTP_X_FORWARDED_PORT'];
 	}
-	if ((isset($_SERVER['HTTP_X_FORWARDED_FOR'])
+	if (isset($_SERVER['HTTP_X_FORWARDED_FOR'])
 		|| isset($_SERVER['HTTP_X_FORWARDED_PROTO'])) {
 		// 2-2. For Reverse Proxy
 		$port = strstr($_SERVER['HTTP_HOST'], ':');
@@ -1142,7 +1142,7 @@ function guess_script_absolute_uri()
 {
 	$proto = get_protocol();
 	$host = get_host();
-	$port = get_port();
+	$port = get_port($proto);
 
 	if ($proto === 'https') {
 		$url = $proto . '://' . $host .
