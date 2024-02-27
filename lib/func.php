@@ -1049,6 +1049,90 @@ function _pkwk_base_uri_type_stack($peek, $push, $uri_type = null)
 }
 
 /**
+ * Guess Protocol.
+ *
+ * @return protocol (http or https)
+ */
+function get_protocol()
+{
+	if (isset($_ENV['PKWK_PROTO'])) {
+		// 1. User Setting
+		return $_ENV['PKWK_PROTO'];
+	}
+	if (isset($_SERVER['HTTP_X_FORWARDED_PROTO'])) {
+		// 2. For Reverse Proxy
+		return $_SERVER['HTTP_X_FORWARDED_PROTO'];
+	}
+
+	if (isset($_SERVER['HTTPS'])) {
+		// 3-1. Local Server Info
+		$proto = ($_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
+		return $proto;
+	}
+
+	if (isset(_SERVER['REQUEST_SCHEME'])) {
+		// 3-2. Local Server Info
+		return $_SERVER['REQUEST_SCHEME'];
+	}
+
+	// 4. other => http
+	return 'http';
+}
+
+/**
+ * Guess Host.
+ *
+ * @return host and port
+ */
+function get_host()
+{
+	if (isset($_ENV['PKWK_HOST'])) {
+		// 1. User Setting
+		return $_ENV['PKWK_HOST'];
+	}
+	if (isset($_SERVER['HTTP_X_FORWARDED_HOST'])) {
+		// 2-1. For Reverse Proxy
+		return $_SERVER['HTTP_X_FORWARDED_HOST'];
+	}
+	if ((isset($_SERVER['HTTP_X_FORWARDED_FOR'])
+		|| isset($_SERVER['HTTP_X_FORWARDED_PROTO'])) {
+		// 2-2. For Reverse Proxy
+		preg_match('/^([a-zA-Z0-9][a-zA-Z0-9\-\.]+)(:[0-9]+){0,1}/',
+			$_SERVER['HTTP_HOST'], $matches);
+		return $matches[1];
+	}
+	// 3. Other
+	return SERVER_NAME;
+}
+
+function get_port($proto)
+{
+	if (isset($_ENV['PKWK_PORT'])) {
+		// 1. User Setting
+		return $_ENV['PKWK_PORT'];
+	}
+	if (isset($_SERVER['HTTP_X_FORWARDED_PORT'])) {
+		// 2-1. For Reverse Proxy
+		return $_SERVER['HTTP_X_FORWARDED_PORT'];
+	}
+	if ((isset($_SERVER['HTTP_X_FORWARDED_FOR'])
+		|| isset($_SERVER['HTTP_X_FORWARDED_PROTO'])) {
+		// 2-2. For Reverse Proxy
+		$port = strstr($_SERVER['HTTP_HOST'], ':');
+		if ($port) {
+			return substr($port, 1);
+		}
+		if ($proto === 'https') {
+			return 443;
+		} else {
+			return 80;
+		}
+	}
+	// 3. Other
+	return SERVER_PORT;
+}
+
+/**
  * Guess Script Absolute URI.
  *
  * SERVER_PORT: $_SERVER['SERVER_PORT'] converted in init.php
@@ -1056,18 +1140,21 @@ function _pkwk_base_uri_type_stack($peek, $push, $uri_type = null)
  */
 function guess_script_absolute_uri()
 {
-	$port = SERVER_PORT;
-	$is_ssl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ||
-		(isset($_SERVER['REQUEST_SCHEME']) && $_SERVER['REQUEST_SCHEME'] === 'https');
-	if ($is_ssl) {
-		$host = 'https://' . SERVER_NAME .
+	$proto = get_protocol();
+	$host = get_host();
+	$port = get_port();
+
+	if ($proto === 'https') {
+		$url = $proto . '://' . $host .
 			($port == 443 ? '' : ':' . $port);
 	} else {
-		$host = 'http://' . SERVER_NAME .
+		$url = $proto . '://' . $host .
 			($port == 80 ? '' : ':' . $port);
 	}
-	$uri_elements = parse_url($host . $_SERVER['REQUEST_URI']);
-	return $host . $uri_elements['path'];
+
+	$uri_elements = parse_url($url . $_SERVER['REQUEST_URI']);
+	$prefix = (isset($_ENV['PKWK_PREFIX'])) ? $_ENV['PKWK_PREFIX'] : '';
+	return $url . $prefix . $uri_elements['path'];
 }
 
 // Remove null(\0) bytes from variables
